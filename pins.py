@@ -1,4 +1,5 @@
-##PINS
+# pin in wich cell will be connected
+# assuming board layout
 CEL_A_1=32
 CEL_A_2=33
 CEL_B_1=38
