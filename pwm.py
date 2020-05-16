@@ -70,11 +70,13 @@ def main():
     # CHANGES DUTY CICLE AND CELL PWM AS YOU WISH
     while():
 
-        cell = input("Wich cell do you want to modify?")
+        #cell = input("Wich cell do you want to modify?")
+        cell = 'A'
         if not(cell == 'A' or cell == 'B' or cell == 'C' or cell == 'D'):
             break           
 
-        action = input("Do you want to heat(h) or cool (c) the cell?")
+        #action = input("Do you want to heat(h) or cool (c) the cell?")
+        action = 'h'
         if action == 'h':
             action = 0
         elif action == 'c':
@@ -82,7 +84,9 @@ def main():
         else:
             break
 
-        duty_cicle = input("choose heating/coolding rate from 0 to 100")
+        #duty_cicle = input("choose heating/coolding rate from 0 to 100")
+        duty_cicle = 10
+
         if duty_cicle < 0 or duty_cicle > 100:
             break
 
@@ -91,6 +95,8 @@ def main():
 
         if action == 1:
             pwm[cell] = cool(pwm[cell], duty_cicle)
+
+        slee(1)
 
     stop(pwm)
     return 0
