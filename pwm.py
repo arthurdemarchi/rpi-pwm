@@ -1,102 +1,141 @@
 import pins as PIN
-import RPi.GPIO as GPIO
-import time
+from RPIO import PWM
 
-FREQUENCY = 25
+# Set up Frequency in Hertz
+FREQUENCY = 1000
 
-def init():
-    # SET HOW TO REFER TO PINS (GPIO VS PIN)
-    GPIO.setmode(GPIO.BOARD)
+# Does using different channels amkes any difference?
+MULTI_CHANNEL = False
 
-    # INIT PWMS
-    pwmAp = init_pwm(PIN.CEL_A_1)
-    pwmAn = init_pwm(PIN.CEL_A_2)
-    pwmBp = init_pwm(PIN.CEL_B_1)
-    pwmBn = init_pwm(PIN.CEL_B_2)
-    pwmCp = init_pwm(PIN.CEL_C_1)
-    pwmCn = init_pwm(PIN.CEL_C_2)
-    pwmDp = init_pwm(PIN.CEL_D_1)
-    pwmDn = init_pwm(PIN.CEL_D_2)
-    
-    # RETURN DICTIONARY WITH ALL PWMS INSTNCES
-    return {"A" : [pwmAp, pwmAn], "B" : [pwmBp, pwmBn], "C" : [pwmCp, pwmCn], "D" : [pwmDp, pwmDn]}
 
-def init_pwm(pin):
-    # SET PWM PIN AS OUTPUT
-    GPIO.setup(pin, GPIO.OUT)
+def init(frequency=FREQUENCY, multi_channel=MULTI_CHANNEL):
+    # frequency: frequency in herts
+    # multi_channel: true or false
 
-    # CREATE PWM INSTANCE ON SAID PIN
-    pwm = GPIO.PWM(pin, FREQUENCY)
-    pwm.stop()
+    if multi_channel:
+        CHANNEL_A = 0
+        CHANNEL_B = 1
+        CHANNEL_C = 2
+        CHANNEL_D = 3
+    else:
+        CHANNEL_A = 0
+        CHANNEL_B = 0
+        CHANNEL_C = 0
+        CHANNEL_D = 0
 
-    # RETURN INSTANCE
+    pwm = {"A": [PIN.CEL_A_1, PIN.CEL_A_2, CHANNEL_A, frequency], "B": [PIN.CEL_B_1, PIN.CEL_B_2, CHANNEL_B, frequency],
+           "C": [PIN.CEL_C_1, PIN.CEL_C_2, CHANNEL_C, frequency], "D": [PIN.CEL_D_1, PIN.CEL_D_2, CHANNEL_D, frequency]}
+
+    PWM.setup()
+    testing = 0
+    testing = testing + init_pwm(pwm['A'][2], pwm['A'][3])
+    testing = testing + init_pwm(pwm['B'][2], pwm['B'][3])
+    testing = testing + init_pwm(pwm['C'][2], pwm['C'][3])
+    testing = testing + init_pwm(pwm['D'][2], pwm['D'][3])
+
+    if not((testing == 4)):
+        print("ERROR: Something went wrong while Initializing one or more PWMs")
+
     return pwm
 
+
+def init_pwm(channel, frequency):
+    # channel_id = 2
+    # channel: pwm['A'][channel_id],  pwm['B']channel_id,  pwm['C']channel_id,  pwm['D']channel_id
+    # frequency: Frequency in Hz
+
+    subcycle = (1/frequency)*1000000
+
+    # if not already initialized by other pwms initialize channeç
+    if not(PWM.is_channel_initialized(channel)):
+        PWM.init_channel(channel, subcycle)
+
+    # Test initialization
+    if not(PWM.is_channel_initialized(channel)):
+        print("ERROR: Channel could not be initialized!")
+        return -1
+
+    # Test Frequency
+    if not(PWM.get_channel_subcycle_time_us(channel) == subcycle):
+        print("ERROR: Frequency could not be setted!")
+        return -1
+
+    return 1
+
+
+def heat(cell, duty_cycle):
+    # computes variables based on duty cycle
+    subcycle_us = (1/cell[3])*1000000
+    width = (subcycle_us/10)*(duty_cycle/100)
+
+    # Stops the pulses on the colding side
+    PWM.clear_channel_gpio(cell[2], cell[1])
+
+    # Gerates pulses on heating side
+    PWM.add_channel_pulse(cell[2], cell[0], 0, width)
+
+
+def cool(cell, duty_cycle):
+    # computes variables based on duty cycle
+    subcycle_us = (1/cell[3])*1000000
+    width = (subcycle_us/10)*(duty_cycle/100)
+
+    # Stops the pulses on the colding side
+    PWM.clear_channel_gpio(cell[2], cell[0])
+
+    # Gerates pulses on heating side
+    PWM.add_channel_pulse(cell[2], cell[1], 0, width)
+
+
 def stop(pwm):
-    # STOP ALL PWM INSTANCES
-    pwm["A"][0].stop
-    pwm["A"][1].stop
-    pwm["B"][0].stop
-    pwm["B"][1].stop
-    pwm["C"][0].stop
-    pwm["C"][1].stop
-    pwm["D"][0].stop
-    pwm["D"][1].stop
-    # CLEAN GPIOS
-    GPIO.cleanup()
-    return
-    
-def heat(cell, duty_cicle):
-    
-    # STOP NEGATIVE PWM AND STARTS POSITIVE WITH CORRECT DC
-    cell[1].stop()
-    cell[0].start(duty_cicle)
+    # stops cells individually
+    stop_cell(pwm['A'])
+    stop_cell(pwm['B'])
+    stop_cell(pwm['C'])
+    stop_cell(pwm['D'])
 
-    # INSTANCE MUST BE RETURN BECAUSE OUT OF SCOPE INSTANCES ARE STOPPED
-    return cell
+    # Shutdown all PWM and DMA activity
+    PWM.cleanup()
 
-def cool(cell, duty_cicle):
-    #  STOP POSITIVE PWM AND STARTS NEGATIVE WITH CORRECT DC
-    cell[0].stop()
-    cell[1].start(duty_cicle)
 
-    # INSTANCE MUST BE RETURN BECAUSE OUT OF SCOPE INSTANCES ARE STOPPED
-    return cell
+def stop_cell(cell):
+    # Stop PWM for specific GPIO on channel
+    PWM.clear_channel_gpio(cell[2], cell[0])
+    PWM.clear_channel_gpio(cell[2], cell[1])
+
 
 def main():
-    
+
+    # Init all 8 pwms and returns a dictionary that represets the 4 cells wi use.
     pwm = init()
 
-    # CHANGES DUTY CICLE AND CELL PWM AS YOU WISH
-    while():
+    # fake while
+    print("Press any key to start heating at 5%")
+    input()
 
-        #cell = input("Wich cell do you want to modify?")
-        cell = 'A'
-        if not(cell == 'A' or cell == 'B' or cell == 'C' or cell == 'D'):
-            break           
+    heat(pwm['A'], 5)
+    heat(pwm['B'], 5)
+    heat(pwm['C'], 5)
+    heat(pwm['D'], 5)
 
-        #action = input("Do you want to heat(h) or cool (c) the cell?")
-        action = 'h'
-        if action == 'h':
-            action = 0
-        elif action == 'c':
-            action = 1
-        else:
-            break
+    # fake while
+    print("Press any key to start cooling at 5%")
+    input()
 
-        #duty_cicle = input("choose heating/coolding rate from 0 to 100")
-        duty_cicle = 10
+    cool(pwm['A'], 5)
+    cool(pwm['B'], 5)
+    cool(pwm['C'], 5)
+    cool(pwm['D'], 5)
 
-        if duty_cicle < 0 or duty_cicle > 100:
-            break
+    # fake while
+    print("Press any key to stop")
+    input()
 
-        if action == 0:
-            pwm[cell] = heat(pwm[cell], duty_cicle)
-
-        if action == 1:
-            pwm[cell] = cool(pwm[cell], duty_cicle)
-
-        slee(1)
-
+    # stops all cells
     stop(pwm)
+
     return 0
+
+
+if __name__ == "__main__":
+    main()
